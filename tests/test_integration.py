@@ -15,7 +15,9 @@ def run_spf_dmarc_tests(net):
     
     # Get the current directory where the script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    test_script = os.path.join(script_dir, "tests", "test_spf_dmarc.sh")
+    # Go up one level since we're in tests/ directory
+    repo_dir = os.path.dirname(script_dir)
+    test_script = os.path.join(repo_dir, "tests", "test_spf_dmarc.sh")
     
     # Ensure DNS is set to point to the good DNS server
     h1 = net.get('h1')

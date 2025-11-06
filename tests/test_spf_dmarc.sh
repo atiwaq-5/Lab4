@@ -46,7 +46,7 @@ DOMAIN="example.com"
 # Test 1: Check SPF record exists
 echo "Test 1: SPF Record Presence and Content"
 echo "----------------------------------------"
-SPF_RECORD=$(dig +short TXT "@${DOMAIN}" @${DNS_SERVER} 2>/dev/null | grep -i "v=spf1" | tr -d '"' || echo "")
+SPF_RECORD=$(dig +short TXT "${DOMAIN}" @${DNS_SERVER} 2>/dev/null | grep -i "v=spf1" | tr -d '"' || echo "")
 if [[ -n "$SPF_RECORD" ]]; then
     log_pass "SPF record found: $SPF_RECORD"
     
