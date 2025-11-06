@@ -1,0 +1,90 @@
+======================================================================
+Lab 4 Pre/Post-Protection Comparison Report
+======================================================================
+Generated: 2024-11-06 14:30:22
+Results directory: results/20241106_143022
+
+Tests Executed:
+----------------------------------------------------------------------
+1. DNS Resolution Tests:
+   - MX record lookup (example.com)
+   - A record lookup (mail.example.com)
+   - SPF record lookup (TXT @ example.com)
+   - DMARC record lookup (TXT _dmarc.example.com)
+   - DNSSEC validation (dig +dnssec)
+   - Attacker DNS resolution
+
+2. SMTP Delivery Tests:
+   - Authorized sender (admin@example.com)
+   - Unauthorized sender (fake@evil.com)
+   - Forged mail via attacker DNS
+
+3. Traffic Captures:
+   - DNS traffic (port 53)
+   - SMTP traffic (port 25)
+   - Complete packet capture
+
+Artifacts Collected:
+----------------------------------------------------------------------
+Baseline Phase:
+  - Logs: results/20241106_143022/baseline/logs/
+  - PCAPs: results/20241106_143022/baseline/pcap/
+  - Dig outputs: results/20241106_143022/baseline/dig_outputs/
+  - Swaks outputs: results/20241106_143022/baseline/swaks_outputs/
+
+Protected Phase:
+  - Logs: results/20241106_143022/protected/logs/
+  - PCAPs: results/20241106_143022/protected/pcap/
+  - Dig outputs: results/20241106_143022/protected/dig_outputs/
+  - Swaks outputs: results/20241106_143022/protected/swaks_outputs/
+
+Analysis Instructions:
+----------------------------------------------------------------------
+1. Compare DNS responses:
+   diff baseline/dig_outputs/ protected/dig_outputs/
+
+2. Compare SMTP behavior:
+   diff baseline/swaks_outputs/ protected/swaks_outputs/
+
+3. Analyze packet captures:
+   wireshark baseline/pcap/baseline_dns.pcap
+   wireshark protected/pcap/protected_dns.pcap
+
+4. Review mail server logs:
+   Check baseline/logs/ and protected/logs/ for SPF/DKIM results
+
+Expected Differences:
+----------------------------------------------------------------------
+- Baseline: No DNSSEC AD bit in DNS responses
+- Protected: DNSSEC AD bit present (if properly configured)
+- Baseline: No SPF/DKIM checks in mail logs
+- Protected: SPF pass/fail and DKIM signatures in headers
+- Baseline: Attacker mail accepted
+- Protected: Attacker mail rejected or quarantined
+
+======================================================================
+
+Example DNS Query Comparison:
+
+BASELINE (dig MX example.com):
+;; ANSWER SECTION:
+example.com.    300    IN    MX    10 mail.example.com.
+
+PROTECTED (dig +dnssec MX example.com):
+;; flags: qr rd ra ad; QUERY: 1, ANSWER: 2, AUTHORITY: 0, ADDITIONAL: 1
+;; ANSWER SECTION:
+example.com.    300    IN    MX    10 mail.example.com.
+example.com.    300    IN    RRSIG MX 13 2 300 [...]
+
+Note the 'ad' flag and RRSIG record in protected version.
+
+Example SPF Check:
+
+BASELINE:
+No SPF verification in logs
+
+PROTECTED:
+Received-SPF: pass (example.com: domain of admin@example.com 
+              designates 10.0.0.25 as permitted sender)
+Received-SPF: fail (example.com: domain of fake@evil.com does not 
+              designate 10.0.0.25 as permitted sender)
