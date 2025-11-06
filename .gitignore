@@ -28,4 +28,5 @@ artifacts/reports/*
 !artifacts/logs/.gitkeep
 !artifacts/pcap/.gitkeep
 !artifacts/reports/.gitkeep
+!artifacts/reports/example_comparison_report.txt
 results/
