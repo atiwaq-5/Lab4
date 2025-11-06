@@ -22,9 +22,8 @@ import re
 
 
 def _run(h, cmd):
-    """Run command `cmd` on Mininet host `h` and return (exitcode, output)."""
+    """Run command `cmd` on Mininet host `h` and return output."""
     out = h.cmd(cmd)
-    # Mininet host.cmd doesn't return exit status; approximate by checking common failure strings
     return out
 
 
@@ -116,8 +115,8 @@ def enable_dnssec_and_client_validation(net, dns_host='dns', client_host='h1', z
     results['ksk_b64'] = ksk_b64
 
     # 6) Configure Unbound on client_host: write a small conf file with trust-anchor and stub-zone
-    unbound_conf = f"""
-server:
+    dns_ip = net.get(dns_host).IP()
+    unbound_conf = f"""server:
     verbosity: 1
     interface: 0.0.0.0
     access-control: 0.0.0.0/0 allow
@@ -126,16 +125,16 @@ server:
     qname-minimisation: yes
     # No auto-trust to root; we're using an island trust anchor for this lab
     auto-trust-anchor-file: ""
-    trust-anchor: \"{zone_name}. 257 3 8 {ksk_b64}\"
+    trust-anchor: "{zone_name}. 257 3 8 {ksk_b64}"
 
 stub-zone:
-    name: \"{zone_name}\"
-    stub-addr: {net.get(dns_host).IP()} 53
-""".format(zone_name=zone_name, ksk_b64=ksk_b64, **locals())
+    name: "{zone_name}"
+    stub-addr: {dns_ip}
+"""
 
-    # Write Unbound conf file using cat heredoc
+    # Write Unbound conf file using cat heredoc with unique marker
     unbound_conf_path = '/etc/unbound/unbound.conf.d/example_lab.conf'
-    write_cmd = f'bash -lc "mkdir -p $(dirname {shlex.quote(unbound_conf_path)}) && cat > {shlex.quote(unbound_conf_path)} << \'UNBOUNDEOF\'\n{unbound_conf}\nUNBOUNDEOF\n"'
+    write_cmd = f'bash -lc "mkdir -p $(dirname {shlex.quote(unbound_conf_path)}) && cat > {shlex.quote(unbound_conf_path)} << \'EOF_UNBOUND_CONFIG_9d8e7f\'\n{unbound_conf}\nEOF_UNBOUND_CONFIG_9d8e7f\n"'
     _run(h1, write_cmd)
 
     # 7) Start/Restart unbound on h1

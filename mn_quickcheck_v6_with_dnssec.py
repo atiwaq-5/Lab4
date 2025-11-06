@@ -104,8 +104,8 @@ def start_bind_on_host(h, zone_path, zone_name):
         '};\n'
     )
     conf_path = os.path.join(tmpdir, 'named.conf')
-    # Write using cat with heredoc
-    h.cmd(f'cat > {conf_path} << \'NAMEDCONF\'\n{named_conf}\nNAMEDCONF\n')
+    # Write using cat with unique heredoc marker
+    h.cmd(f'cat > {conf_path} << \'EOF_NAMED_CONFIG_8a9b2c\'\n{named_conf}\nEOF_NAMED_CONFIG_8a9b2c\n')
     
     # Check if zone file exists before starting
     zone_check = h.cmd(f'test -f {zone_path} && echo "exists" || echo "missing"').strip()
@@ -190,9 +190,9 @@ def main():
     att.cmd('mkdir -p /root/zones || true')
     good_text = open(src_good).read()
     att_text  = open(src_att).read()
-    # Write using cat with heredoc
-    dns.cmd(f'cat > /root/zones/db.example.com.good << \'ZONEGOOD\'\n{good_text}\nZONEGOOD\n')
-    att.cmd(f'cat > /root/zones/db.example.com.att << \'ZONEATT\'\n{att_text}\nZONEATT\n')
+    # Write using cat with unique heredoc markers
+    dns.cmd(f'cat > /root/zones/db.example.com.good << \'EOF_ZONE_GOOD_7c8d9e\'\n{good_text}\nEOF_ZONE_GOOD_7c8d9e\n')
+    att.cmd(f'cat > /root/zones/db.example.com.att << \'EOF_ZONE_ATT_6b7c8d\'\n{att_text}\nEOF_ZONE_ATT_6b7c8d\n')
 
     # Verify files were written
     dns_check = dns.cmd('test -f /root/zones/db.example.com.good && echo "ok" || echo "fail"').strip()

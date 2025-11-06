@@ -120,8 +120,8 @@ def start_bind_on_host(h, zone_path, zone_name):
     )
     conf_path = os.path.join(tmpdir, 'named.conf')
     
-    # Write config using cat with heredoc marker (more reliable than printf for multi-line)
-    h.cmd(f'cat > {conf_path} << \'NAMEDCONF\'\n{named_conf}\nNAMEDCONF\n')
+    # Write config using cat with unique heredoc marker
+    h.cmd(f'cat > {conf_path} << \'EOF_NAMED_CONFIG_8a9b2c\'\n{named_conf}\nEOF_NAMED_CONFIG_8a9b2c\n')
     
     # Kill any existing named process
     h.cmd('pkill named || true')
@@ -154,7 +154,7 @@ def start_unbound_on_host(h, config_content, logfile="/tmp/unbound.log"):
     
     # Create directory and write config using cat heredoc
     h.cmd('mkdir -p /etc/unbound/unbound.conf.d || true')
-    h.cmd(f'cat > {conf_path} << \'UNBOUNDCONF\'\n{config_content}\nUNBOUNDCONF\n')
+    h.cmd(f'cat > {conf_path} << \'EOF_UNBOUND_CONFIG_3f4e5d\'\n{config_content}\nEOF_UNBOUND_CONFIG_3f4e5d\n')
     
     # Check if unbound binary exists
     unbound_check = h.cmd('which unbound 2>/dev/null || which unbound-daemon 2>/dev/null || echo "missing"').strip()
@@ -281,9 +281,9 @@ def main():
     good_text = open(src_good).read()
     att_text = open(src_att).read()
     
-    # Use cat with heredoc for reliable multi-line writes
-    dns.cmd(f'cat > /root/zones/db.example.com.good << \'ZONEGOOD\'\n{good_text}\nZONEGOOD\n')
-    att.cmd(f'cat > /root/zones/db.example.com.att << \'ZONEATT\'\n{att_text}\nZONEATT\n')
+    # Use cat with unique heredoc markers for reliable multi-line writes
+    dns.cmd(f'cat > /root/zones/db.example.com.good << \'EOF_ZONE_GOOD_7c8d9e\'\n{good_text}\nEOF_ZONE_GOOD_7c8d9e\n')
+    att.cmd(f'cat > /root/zones/db.example.com.att << \'EOF_ZONE_ATT_6b7c8d\'\n{att_text}\nEOF_ZONE_ATT_6b7c8d\n')
     
     # Verify files were written
     dns_check = dns.cmd('test -f /root/zones/db.example.com.good && echo "ok" || echo "fail"').strip()
@@ -359,7 +359,7 @@ def main():
     print('\n' + '=' * 70)
     print('SETUP SUMMARY')
     print('=' * 70)
-    print(f"DNS on 'dns' host: {'✓ Running' if success else '✗ Failed'}")
+    print(f"DNS on 'dns' host: {'✓ Running' if success_dns else '✗ Failed'}")
     print(f"SMTP on 'mx' host: {'✓ Running' if success_mx else '✗ Failed'}")
     print("\nQuick test results:")
     print(f"  - Direct query to DNS: {tests.get('dig_direct_authoritative', 'N/A')[:50]}")
