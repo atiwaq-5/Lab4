@@ -1,0 +1,1 @@
+py __import__("importlib").import_module("mn_quickcheck_v6").run(net, interactive=False)
