@@ -49,23 +49,30 @@ source mn_run_tests4.cli         # non-interactive summary
 
 ## Zone records
 
-`zones/db.example.com.good` includes **SPF** and **DMARC**:
+`zones/db.example.com.good` includes **SPF**, **DMARC**, and **DKIM**:
 
 ```zone
-@       IN TXT   "v=spf1 a mx -all"
-_dmarc  IN TXT   "v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@example.com"
+@              IN TXT   "v=spf1 a mx -all"
+_dmarc         IN TXT   "v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@example.com"
+s1._domainkey  IN TXT   "v=DKIM1; k=rsa; p=<public-key>"
 ```
 
 The attacker zone intentionally points MX to `att.example.com` on `10.0.0.66`.
 
-## Notes on the full assignment (DNSSEC/DKIM)
+## DKIM Implementation
 
-This bundle focuses on the base requirements + SPF/DMARC TXT presence and a complete forged‑MX attack demo. To go for A/A+ with **DNSSEC** and **DKIM**, add:
-- DNSSEC: enable inline‑signing on `dns`, generate keys, sign `example.com`, and verify with `dig +dnssec` (AD bit).  
-- DKIM: run `opendkim` on `mx`, publish the selector TXT, sign mail, and verify signatures.
+This package now includes **DKIM signing** support:
+- **OpenDKIM** is automatically configured on the `mx` host with selector `s1`
+- **Postfix** is configured to use OpenDKIM as a milter on port 8891
+- The DKIM public key is published in the DNS zone as `s1._domainkey.example.com`
+- Use `tools/generate_dkim_keys.sh` to regenerate keys if needed
+- The quick-check includes DKIM TXT record verification and signing tests
 
-These are heavier changes; the current quick‑check keeps them optional so you don’t destabilize the working demo.
+## Notes on DNSSEC
 
+For A/A+ grading with **DNSSEC**:
+- Enable inline‑signing on `dns`, generate keys, sign `example.com`, and verify with `dig +dnssec` (AD bit)
+- See `mn_quickcheck_v6_dnssec_patch.py` for helper functions
 ## Troubleshooting
 
 - If `dig` shows *connection refused*, ensure you run from this folder and that `bind9`, `dnsutils`, `swaks` are installed.
