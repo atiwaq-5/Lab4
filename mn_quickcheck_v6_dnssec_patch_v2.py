@@ -60,10 +60,11 @@ def enable_dnssec_and_client_validation(net, dns_host='dns', client_host='h1',
     _run(dns, f'mkdir -p {zone_dir}')
 
     # 1) Generate DNSSEC keys if they don't exist
-    # Check for existing keys
-    key_check = _run(dns, f'bash -c "ls {zone_dir}/K{zone_name}.+*.key 2>/dev/null | wc -l"').strip()
+    # Check for existing keys using simpler command
+    key_pattern = f'{zone_dir}/K{zone_name}.+*.key'
+    key_check_output = _run(dns, f'ls {key_pattern} 2>/dev/null || echo "none"').strip()
     
-    if key_check == '0':
+    if key_check_output == 'none' or not key_check_output:
         print(f'[DNSSEC] Generating keys for {zone_name}...')
         # Generate KSK (Key Signing Key) with flag 257
         ksk_out = _run(dns, f'cd {zone_dir} && dnssec-keygen -a RSASHA256 -b 2048 -n ZONE -f KSK {zone_name}')
@@ -75,9 +76,9 @@ def enable_dnssec_and_client_validation(net, dns_host='dns', client_host='h1',
     else:
         print(f'[DNSSEC] Found existing keys ({key_check} key files)')
 
-    # 2) Locate key files
-    key_list = _run(dns, f'bash -c "ls {zone_dir}/K{zone_name}.+*.key 2>/dev/null"').strip().split('\n')
-    key_files = [k for k in key_list if k]
+    # 2) Locate key files using simpler ls
+    key_list_output = _run(dns, f'ls {zone_dir}/K{zone_name}.+*.key 2>/dev/null || true').strip()
+    key_files = [k for k in key_list_output.split('\n') if k and k.endswith('.key')]
     
     if not key_files:
         raise RuntimeError(f'No DNSSEC keys found in {zone_dir}')
@@ -110,7 +111,12 @@ def enable_dnssec_and_client_validation(net, dns_host='dns', client_host='h1',
     zsk_base = os.path.splitext(zsk)[0]
     
     print(f'[DNSSEC] Signing zone {zone_name}...')
-    sign_cmd = f'cd {zone_dir} && dnssec-signzone -A -3 $(echo {zone_name} | sha256sum | cut -c1-16) -N INCREMENT -o {zone_name} -t -K . {zone_basename} {ksk_base} {zsk_base}'
+    # Build signing command in parts for clarity
+    salt = _run(dns, f'echo {zone_name} | sha256sum | cut -c1-16').strip()
+    sign_cmd = (f'cd {zone_dir} && '
+                f'dnssec-signzone -A -3 {salt} -N INCREMENT '
+                f'-o {zone_name} -t -K . {zone_basename} '
+                f'{ksk_base} {zsk_base}')
     sign_output = _run(dns, sign_cmd)
     
     results['signed_zone'] = signed_zone
@@ -157,7 +163,7 @@ def enable_dnssec_and_client_validation(net, dns_host='dns', client_host='h1',
     harden-glue: yes
     harden-dnssec-stripped: yes
     use-caps-for-id: no
-    qname-minimisation: yes
+    qname-minimization: yes
     prefetch: yes
     num-threads: 1
     msg-cache-size: 4m
@@ -172,10 +178,21 @@ stub-zone:
     stub-addr: {dns.IP()}@53
 '''
     
-    # Write configuration file using printf to avoid heredoc issues
-    conf_path = '/etc/unbound/unbound.conf.d/lab4_dnssec.conf'
-    escaped_conf = unbound_conf.replace('"', '\\"').replace('$', '\\$')
-    _run(h1, f'printf "%s" "{escaped_conf}" > {conf_path}')
+    # Write configuration file using a safer method
+    # Create temp file with content and move it
+    import tempfile
+    import shlex
+    
+    temp_conf = '/tmp/unbound_lab4.conf'
+    # Use printf with proper quoting
+    conf_lines = unbound_conf.split('\n')
+    _run(h1, f'rm -f {temp_conf}')
+    for line in conf_lines:
+        if line.strip():
+            # Use shlex.quote for safer shell quoting
+            _run(h1, f'echo {shlex.quote(line)} >> {temp_conf}')
+    _run(h1, f'mkdir -p /etc/unbound/unbound.conf.d')
+    _run(h1, f'cp {temp_conf} {conf_path}')
     
     # Restart Unbound
     _run(h1, 'pkill unbound || true')
