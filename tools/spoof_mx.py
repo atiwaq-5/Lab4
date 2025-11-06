@@ -3,11 +3,21 @@
 Lightweight UDP DNS responder for DNS spoofing demonstration.
 Returns forged MX records pointing to the attacker's IP address.
 
+⚠️  EDUCATIONAL USE ONLY ⚠️
+This tool is designed for educational purposes in controlled lab environments.
+DNS spoofing is illegal on production networks. Use responsibly.
+
 Usage:
     python3 spoof_mx.py [--ip IP] [--port PORT] [--domain DOMAIN] [--attacker-ip ATTACKER_IP]
 
 Example:
     python3 spoof_mx.py --ip 0.0.0.0 --port 53 --domain example.com --attacker-ip 10.0.0.66
+
+Security Considerations:
+    - Only use in isolated lab/testing environments
+    - The tool binds to all interfaces (0.0.0.0) for lab demonstrations
+    - Never deploy on production or public-facing networks
+    - DNS spoofing violates network security policies and laws
 """
 
 import socket
@@ -138,11 +148,17 @@ def run_dns_spoofer(listen_ip='0.0.0.0', listen_port=53, forged_domain='example.
         attacker_ip: IP address to return in forged responses
         attacker_mx: MX hostname for the attacker
         verbose: Print verbose output
+    
+    Security Note:
+        This tool is for educational/demonstration purposes only. Binding to
+        0.0.0.0 is intentional to allow testing from any network interface in
+        a controlled lab environment. Never use in production networks.
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     
     try:
+        # Intentionally binds to specified interface (may be 0.0.0.0 for lab demo)
         sock.bind((listen_ip, listen_port))
         if verbose:
             print(f"[*] DNS Spoofer listening on {listen_ip}:{listen_port}")
