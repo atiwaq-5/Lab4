@@ -97,7 +97,7 @@ else
     echo "  sudo apt-get update"
     echo "  sudo apt-get install -y bind9 dnsutils swaks tcpdump"
     echo ""
-    echo "Note: Python 3 is typically pre-installed on Ubuntu/Debian."
-    echo "If missing, install with: sudo apt-get install -y python3"
+    echo "Note: Python 3 is typically pre-installed. Install if needed:"
+    echo "  sudo apt-get install -y python3"
 fi
 echo "========================================"

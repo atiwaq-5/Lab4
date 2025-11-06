@@ -71,8 +71,10 @@ def run_swaks_test(h, server, from_addr, to_addr, output_file, subject="Test"):
 
 def start_pcap(h, interface, output_file, port=None):
     """Start tcpdump on host"""
-    filter_expr = f"port {port}" if port else ""
-    cmd = f"tcpdump -i {interface} {filter_expr} -w {output_file} 2>/dev/null &"
+    if port:
+        cmd = f"tcpdump -i {interface} port {port} -w {output_file} 2>/dev/null &"
+    else:
+        cmd = f"tcpdump -i {interface} -w {output_file} 2>/dev/null &"
     h.cmd(cmd)
     time.sleep(0.5)
     print(f"  ✓ Started tcpdump on {h.name}:{interface} -> {output_file}")
@@ -99,17 +101,19 @@ def ensure_named(h, ip, zone_src):
 };
 '''
     
+    # Determine which user to run as
+    user_check = h.cmd("id -u bind >/dev/null 2>&1 && echo bind || echo root").strip()
+    bind_user = user_check if user_check else "root"
+    
     cmds = [
         "pkill -9 named || true",
         "mkdir -p /var/cache/bind/zones",
         f"cp {zone_src} /var/cache/bind/zones/db.example.com",
-        # Try bind user, fallback to root if bind user doesn't exist
-        "id -u bind >/dev/null 2>&1 && chown -R bind:bind /var/cache/bind || chown -R root:root /var/cache/bind",
+        f"chown -R {bind_user}:{bind_user} /var/cache/bind",
         "chmod -R u+rwX,go+rX /var/cache/bind",
         f"bash -c 'cat > /etc/bind/named.conf.options <<EOF\n{named_opts}EOF'",
         f"bash -c 'cat > /etc/bind/named.conf.local <<EOF\n{named_local}EOF'",
-        # Try to run as bind user, fallback to root
-        "id -u bind >/dev/null 2>&1 && named -4 -u bind -g -c /etc/bind/named.conf >/tmp/named.log 2>&1 & sleep 1 || named -4 -u root -g -c /etc/bind/named.conf >/tmp/named.log 2>&1 & sleep 1"
+        f"named -4 -u {bind_user} -g -c /etc/bind/named.conf >/tmp/named.log 2>&1 & sleep 1"
     ]
     for c in cmds:
         h.cmd(c)
@@ -452,9 +456,17 @@ for dir in logs pcap reports; do
         find "$PROJECT_DIR/artifacts/$dir" -type f -not -name '.gitkeep' -delete
     fi
 done
-cp -r "$RESULTS_DIR"/baseline/logs/* "$PROJECT_DIR/artifacts/logs/" 2>/dev/null || true
-cp -r "$RESULTS_DIR"/baseline/pcap/* "$PROJECT_DIR/artifacts/pcap/" 2>/dev/null || true
-cp "$RESULTS_DIR"/comparison_report.txt "$PROJECT_DIR/artifacts/reports/" 2>/dev/null || true
+
+# Copy artifacts safely, checking for files first
+if [ -n "$(find "$RESULTS_DIR/baseline/logs" -maxdepth 1 -type f 2>/dev/null)" ]; then
+    cp "$RESULTS_DIR"/baseline/logs/* "$PROJECT_DIR/artifacts/logs/" 2>/dev/null || true
+fi
+if [ -n "$(find "$RESULTS_DIR/baseline/pcap" -maxdepth 1 -type f 2>/dev/null)" ]; then
+    cp "$RESULTS_DIR"/baseline/pcap/* "$PROJECT_DIR/artifacts/pcap/" 2>/dev/null || true
+fi
+if [ -f "$RESULTS_DIR/comparison_report.txt" ]; then
+    cp "$RESULTS_DIR/comparison_report.txt" "$PROJECT_DIR/artifacts/reports/" 2>/dev/null || true
+fi
 
 echo ""
 echo "========================================"
