@@ -101,7 +101,7 @@ def run(net, interactive=True):
     pause("📸 Take a screenshot of the ping results. Press Enter to continue...", interactive)
 
     # Step 1: GOOD DNS
-    say("Step 1 — Start GOOD authoritative DNS on dns (serves mail.example.com → 10.0.0.25; includes SPF/DMARC)")
+    say("Step 1 — Start GOOD authoritative DNS on dns (serves mx.example.com → 10.0.0.25; includes SPF/DMARC)")
     ok_dns = _ensure_named(net, "dns", dns_ip, "zones/db.example.com.good")
     say(f"Result: GOOD DNS up & answering: {'✔️' if ok_dns else '✖️'}")
     pause("📸 Screenshot: `dns` :53 listening + tail /tmp/named.log. Press Enter...", interactive)
@@ -121,13 +121,25 @@ def run(net, interactive=True):
 
     # Step 4: Good DNS path (+ SPF/DMARC TXT checks)
     say("Step 4 — Resolve via GOOD DNS and test baseline SMTP to REAL MX (10.0.0.25)")
-    _cmd(net, "h1", f"bash -lc 'printf "nameserver {dns_ip}\n" > /etc/resolv.conf'")
+    _cmd(net, "h1", f"bash -lc 'printf \"nameserver {dns_ip}\n\" > /etc/resolv.conf'")
     mx_ans = _dig_short(net, "h1", "example.com", "MX", dns=dns_ip)
-    a_ans  = _dig_short(net, "h1", "mail.example.com", "A",  dns=dns_ip)
+    
+    # Pre-check: Extract MX hostname and verify its A record
+    mx_host = mx_ans.split()[-1].rstrip('.') if mx_ans else ""
+    if not mx_host:
+        say(f"⚠️  WARNING: MX lookup failed - no MX record returned for example.com")
+        a_ans = ""
+        mx_a_ok = False
+    else:
+        a_ans = _dig_short(net, "h1", mx_host, "A", dns=dns_ip)
+        mx_a_ok = bool(a_ans.strip())
+        if not mx_a_ok:
+            say(f"⚠️  WARNING: MX hostname '{mx_host}' has no A record - SMTP delivery will fail")
+    
     spf_ok, spf_txt = _txt_present(net, "h1", "example.com", dns_ip, "v=spf1")
     dmarc_ok, dmarc_txt = _txt_present(net, "h1", "_dmarc.example.com", dns_ip, "v=DMARC1")
     say(f"MX(example.com) via {dns_ip}: {mx_ans or '(empty)'}")
-    say(f"A(mail.example.com) via {dns_ip}: {a_ans or '(empty)'}")
+    say(f"A({mx_host or 'N/A'}) via {dns_ip}: {a_ans or '(empty)'} {'✔️' if mx_a_ok else '✖️'}")
     say(f"SPF TXT(@): {'✔️' if spf_ok else '✖️'}  {spf_txt or ''}")
     say(f"DMARC TXT(_dmarc): {'✔️' if dmarc_ok else '✖️'}  {dmarc_txt or ''}")
     b_ok, b_out = _swaks_quit_after_rcpt(net, "h1", mx_ip)
@@ -136,7 +148,7 @@ def run(net, interactive=True):
 
     # Step 5: Forged path
     say("Step 5 — Switch to attacker DNS, resolve forged MX, and send mail to attacker")
-    _cmd(net, "h1", f"bash -lc 'printf "nameserver {att_ip}\n" > /etc/resolv.conf'")
+    _cmd(net, "h1", f"bash -lc 'printf \"nameserver {att_ip}\n\" > /etc/resolv.conf'")
     forged_mx = _dig_short(net, "h1", "example.com", "MX", dns=att_ip)
     forged_mx = forged_mx.split()[-1].rstrip('.') if forged_mx else ""
     forged_ip = _dig_short(net, "h1", forged_mx, "A", dns=att_ip) if forged_mx else ""
