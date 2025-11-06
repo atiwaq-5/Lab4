@@ -28,7 +28,9 @@ def setup_opendkim_on_mx(net):
     
     # Install opendkim if not present
     mx.cmd("apt-get update -qq 2>/dev/null || true")
-    mx.cmd("DEBIAN_FRONTEND=noninteractive apt-get install -y -qq opendkim opendkim-tools postfix 2>/dev/null || true")
+    install_result = mx.cmd("DEBIAN_FRONTEND=noninteractive apt-get install -y -qq opendkim opendkim-tools postfix 2>&1")
+    if "E:" in install_result:
+        print(f"WARNING: Package installation may have failed: {install_result[:200]}")
     
     # Create directory structure
     mx.cmd(f"mkdir -p /etc/opendkim/keys/{domain}")
@@ -39,36 +41,37 @@ def setup_opendkim_on_mx(net):
     mx.cmd(f"chmod 600 /etc/opendkim/keys/{domain}/{selector}.private")
     
     # Create OpenDKIM configuration
-    opendkim_conf = f"""
-# OpenDKIM configuration
+    opendkim_conf = """# OpenDKIM configuration
 Syslog yes
 UMask 002
-Domain {domain}
-Selector {selector}
-KeyFile /etc/opendkim/keys/{domain}/{selector}.private
+Domain example.com
+Selector s1
+KeyFile /etc/opendkim/keys/example.com/s1.private
 Socket inet:8891@127.0.0.1
 Canonicalization relaxed/simple
 Mode sv
 AutoRestart yes
 """
-    mx.cmd(f"bash -lc 'cat > /etc/opendkim.conf <<EOF\n{opendkim_conf}EOF'")
+    mx.cmd("cat > /etc/opendkim.conf << 'EOFCONF'\n" + opendkim_conf + "EOFCONF")
     
     # Create key table
     key_table = f"{selector}._domainkey.{domain} {domain}:{selector}:/etc/opendkim/keys/{domain}/{selector}.private\n"
-    mx.cmd(f"bash -lc 'cat > /etc/opendkim/KeyTable <<EOF\n{key_table}EOF'")
+    mx.cmd("cat > /etc/opendkim/KeyTable << 'EOFKEY'\n" + key_table + "EOFKEY")
     
     # Create signing table
     signing_table = f"*@{domain} {selector}._domainkey.{domain}\n"
-    mx.cmd(f"bash -lc 'cat > /etc/opendkim/SigningTable <<EOF\n{signing_table}EOF'")
+    mx.cmd("cat > /etc/opendkim/SigningTable << 'EOFSIGN'\n" + signing_table + "EOFSIGN")
     
     # Create trusted hosts
     trusted_hosts = "127.0.0.1\n10.0.0.0/24\nlocalhost\n*.example.com\n"
-    mx.cmd(f"bash -lc 'cat > /etc/opendkim/TrustedHosts <<EOF\n{trusted_hosts}EOF'")
+    mx.cmd("cat > /etc/opendkim/TrustedHosts << 'EOFTRUST'\n" + trusted_hosts + "EOFTRUST")
     
     # Fix permissions
     mx.cmd("chown -R opendkim:opendkim /etc/opendkim")
     
-    # Start OpenDKIM
+    # Start OpenDKIM (graceful shutdown first)
+    mx.cmd("pkill opendkim || true")
+    mx.cmd("sleep 1")
     mx.cmd("pkill -9 opendkim || true")
     mx.cmd("opendkim -p inet:8891@127.0.0.1 2>/tmp/opendkim.log &")
     mx.cmd("sleep 2")
@@ -90,8 +93,7 @@ def setup_postfix_on_mx(net):
     print("Configuring Postfix with DKIM milter...")
     
     # Basic Postfix configuration
-    postfix_main = """
-myhostname = mail.example.com
+    postfix_main = """myhostname = mail.example.com
 mydomain = example.com
 myorigin = $mydomain
 inet_interfaces = all
@@ -102,7 +104,7 @@ non_smtpd_milters = inet:127.0.0.1:8891
 milter_default_action = accept
 milter_protocol = 2
 """
-    mx.cmd(f"bash -lc 'cat > /etc/postfix/main.cf <<EOF\n{postfix_main}EOF'")
+    mx.cmd("cat > /etc/postfix/main.cf << 'EOFPOSTFIX'\n" + postfix_main + "EOFPOSTFIX")
     
     # Restart Postfix
     mx.cmd("postfix stop 2>/dev/null || true")
