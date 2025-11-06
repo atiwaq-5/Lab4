@@ -166,7 +166,7 @@ def start_named_authoritative(h, zone_name, zone_path):
     write_file(h, conf, named_conf)
     _run(h, 'pkill named || true')
     # Start named in the host namespace (the mininet host will see the binary)
-    _run(h, f'named -c {conf} -u root 2>/tmp/named_{h.name}.log &')
+    _run(h, f'bash -lc "named -c {shlex.quote(conf)} -u root 2>/tmp/named_{h.name}.log &"')
     time.sleep(0.4)
 
 
@@ -229,7 +229,7 @@ def dnssec_sign_and_client_validate(net, zone_file='/root/zones/db.example.com.g
         f'    stub-addr: {net.get(dns_host).IP()} 53\n'
     )
     write_file(h1, '/etc/unbound/unbound.conf.d/example_lab.conf', conf)
-    _run(h1, 'systemctl restart unbound || service unbound restart || true')
+    _run(h1, 'bash -lc "systemctl restart unbound || service unbound restart || true"')
     _run(h1, 'bash -lc "echo nameserver 127.0.0.1 > /etc/resolv.conf"')
     res['dig_signed_direct'] = _run(h1, f'dig +dnssec MX {zone_name} @{net.get(dns_host).IP()} +short').strip()
     res['dig_validated'] = _run(h1, f'dig MX {zone_name} +short').strip()
