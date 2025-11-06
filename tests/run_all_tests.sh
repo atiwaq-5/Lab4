@@ -2,7 +2,8 @@
 # run_all_tests.sh - Automated test harness for pre/post-protection comparison
 # Boots Mininet topology, runs baseline tests, enables protections, re-runs tests, and generates report
 
-set -e
+# Note: Not using 'set -e' globally as some test failures are expected (e.g., unauthorized SMTP)
+# Critical operations have explicit error handling instead
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -17,7 +18,10 @@ echo "Results dir: $RESULTS_DIR"
 echo ""
 
 # Create results directory
-mkdir -p "$RESULTS_DIR"/{baseline,protected}/{logs,pcap,dig_outputs,swaks_outputs}
+mkdir -p "$RESULTS_DIR"/{baseline,protected}/{logs,pcap,dig_outputs,swaks_outputs} || {
+    echo "Error: Failed to create results directory structure"
+    exit 1
+}
 
 # Create test execution script for Mininet
 TEST_SCRIPT="/tmp/mininet_test_script_$TIMESTAMP.py"
@@ -99,11 +103,13 @@ def ensure_named(h, ip, zone_src):
         "pkill -9 named || true",
         "mkdir -p /var/cache/bind/zones",
         f"cp {zone_src} /var/cache/bind/zones/db.example.com",
-        "chown -R bind:bind /var/cache/bind",
+        # Try bind user, fallback to root if bind user doesn't exist
+        "id -u bind >/dev/null 2>&1 && chown -R bind:bind /var/cache/bind || chown -R root:root /var/cache/bind",
         "chmod -R u+rwX,go+rX /var/cache/bind",
         f"bash -c 'cat > /etc/bind/named.conf.options <<EOF\n{named_opts}EOF'",
         f"bash -c 'cat > /etc/bind/named.conf.local <<EOF\n{named_local}EOF'",
-        "named -4 -u bind -g -c /etc/bind/named.conf >/tmp/named.log 2>&1 & sleep 1"
+        # Try to run as bind user, fallback to root
+        "id -u bind >/dev/null 2>&1 && named -4 -u bind -g -c /etc/bind/named.conf >/tmp/named.log 2>&1 & sleep 1 || named -4 -u root -g -c /etc/bind/named.conf >/tmp/named.log 2>&1 & sleep 1"
     ]
     for c in cmds:
         h.cmd(c)
@@ -440,7 +446,12 @@ sudo bash "$SCRIPT_DIR/collect_logs.sh" "protected" "$RESULTS_DIR"
 # Copy results to artifacts directory for easy access
 echo ""
 echo "==== Copying latest results to artifacts/ ===="
-rm -rf "$PROJECT_DIR/artifacts/logs/"* "$PROJECT_DIR/artifacts/pcap/"* "$PROJECT_DIR/artifacts/reports/"*
+# Clean artifacts directories safely
+for dir in logs pcap reports; do
+    if [ -d "$PROJECT_DIR/artifacts/$dir" ]; then
+        find "$PROJECT_DIR/artifacts/$dir" -type f -not -name '.gitkeep' -delete
+    fi
+done
 cp -r "$RESULTS_DIR"/baseline/logs/* "$PROJECT_DIR/artifacts/logs/" 2>/dev/null || true
 cp -r "$RESULTS_DIR"/baseline/pcap/* "$PROJECT_DIR/artifacts/pcap/" 2>/dev/null || true
 cp "$RESULTS_DIR"/comparison_report.txt "$PROJECT_DIR/artifacts/reports/" 2>/dev/null || true

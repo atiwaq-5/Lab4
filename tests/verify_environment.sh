@@ -95,6 +95,9 @@ else
     echo "✗ Environment check FAILED"
     echo "Please install missing dependencies:"
     echo "  sudo apt-get update"
-    echo "  sudo apt-get install -y bind9 dnsutils swaks python3 tcpdump"
+    echo "  sudo apt-get install -y bind9 dnsutils swaks tcpdump"
+    echo ""
+    echo "Note: Python 3 is typically pre-installed on Ubuntu/Debian."
+    echo "If missing, install with: sudo apt-get install -y python3"
 fi
 echo "========================================"

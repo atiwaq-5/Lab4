@@ -1,7 +1,8 @@
 #!/bin/bash
 # collect_logs.sh - Collects logs, pcaps, and test outputs for comparison
 
-set -e
+# Enable nullglob to handle empty glob patterns
+shopt -s nullglob
 
 # Parse arguments
 PHASE="${1:-baseline}"  # baseline or protected
