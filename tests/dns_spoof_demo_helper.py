@@ -14,6 +14,7 @@ The demonstration includes:
 import os
 import sys
 import time
+import shlex
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -273,7 +274,10 @@ zone "example.com" IN {
     file "/var/cache/bind/zones/db.example.com";
 };
 """
-        h.cmd(f"bash -lc 'cat > /etc/bind/named.conf <<EOF\n{named_conf}EOF'")
+        # Write config file using printf to avoid command injection
+        import shlex
+        conf_content = named_conf.replace("'", "'\\''")  # Escape single quotes
+        h.cmd(f"printf '%s' {shlex.quote(named_conf)} > /etc/bind/named.conf")
         h.cmd("named -4 -u bind -g -c /etc/bind/named.conf >/tmp/named.log 2>&1 & sleep 1")
     
     say("\n[2.3] Query MX record for example.com via legitimate DNS...")
