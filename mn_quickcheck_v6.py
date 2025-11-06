@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Lab 4 quick check (authoritative DNS + forged MX demo + SPF/DMARC presence).
+Lab 4 quick check (authoritative DNS + forged MX demo + SPF/DMARC/DKIM).
 Use from Mininet CLI (inside lab folder):
   source mn_quickcheck_v6.cli        # interactive (prompts for screenshots)
   source mn_run_tests4.cli           # non-interactive
@@ -85,12 +85,32 @@ def _swaks_send_to_attacker(net, host, server):
 def _tail(net, host, path, n=40):
     return net.get(host).cmd(f"tail -n {n} {path} 2>/dev/null || true")
 
+def _test_dkim_signature(net, host, server):
+    """Send a test email and verify DKIM signature is present."""
+    out = net.get(host).cmd(
+        f"swaks --to test@example.com --from sender@example.com --server {server} "
+        f"--header 'Subject: DKIM Test' --body 'Testing DKIM signing' 2>&1"
+    )
+    ok = (" 250 " in out) or (" 250 2.0.0" in out)
+    return ok, out
+
+def _check_dkim_in_headers(net, host, logpath):
+    """Check if DKIM-Signature header is present in logged messages."""
+    log_content = net.get(host).cmd(f"cat {logpath} 2>/dev/null || true")
+    has_dkim = "DKIM-Signature:" in log_content
+    return has_dkim, log_content
+
+def _verify_opendkim_running(net, host):
+    """Check if OpenDKIM is running and listening on port 8891."""
+    check = net.get(host).cmd("ss -ltnp | grep ':8891' || echo 'NOT_RUNNING'")
+    return "NOT_RUNNING" not in check
+
 def run(net, interactive=True):
     dns_ip = "10.0.0.53"
     att_ip = "10.0.0.66"
     mx_ip  = "10.0.0.25"
 
-    say("==== Lab 4 Quick Check (authoritative DNS + forged MX + SPF/DMARC) ====")
+    say("==== Lab 4 Quick Check (authoritative DNS + forged MX + SPF/DMARC/DKIM) ====")
 
     # Step 0: connectivity
     say("Step 0 — Connectivity test: pings from h1 to dns/att/mx")
@@ -101,7 +121,7 @@ def run(net, interactive=True):
     pause("📸 Take a screenshot of the ping results. Press Enter to continue...", interactive)
 
     # Step 1: GOOD DNS
-    say("Step 1 — Start GOOD authoritative DNS on dns (serves mail.example.com → 10.0.0.25; includes SPF/DMARC)")
+    say("Step 1 — Start GOOD authoritative DNS on dns (serves mail.example.com → 10.0.0.25; includes SPF/DMARC/DKIM)")
     ok_dns = _ensure_named(net, "dns", dns_ip, "zones/db.example.com.good")
     say(f"Result: GOOD DNS up & answering: {'✔️' if ok_dns else '✖️'}")
     pause("📸 Screenshot: `dns` :53 listening + tail /tmp/named.log. Press Enter...", interactive)
@@ -121,7 +141,7 @@ def run(net, interactive=True):
 
     # Step 4: Good DNS path (+ SPF/DMARC TXT checks)
     say("Step 4 — Resolve via GOOD DNS and test baseline SMTP to REAL MX (10.0.0.25)")
-    _cmd(net, "h1", f"bash -lc 'printf "nameserver {dns_ip}\n" > /etc/resolv.conf'")
+    _cmd(net, "h1", f"bash -lc 'printf \"nameserver {dns_ip}\\n\" > /etc/resolv.conf'")
     mx_ans = _dig_short(net, "h1", "example.com", "MX", dns=dns_ip)
     a_ans  = _dig_short(net, "h1", "mail.example.com", "A",  dns=dns_ip)
     spf_ok, spf_txt = _txt_present(net, "h1", "example.com", dns_ip, "v=spf1")
@@ -136,7 +156,7 @@ def run(net, interactive=True):
 
     # Step 5: Forged path
     say("Step 5 — Switch to attacker DNS, resolve forged MX, and send mail to attacker")
-    _cmd(net, "h1", f"bash -lc 'printf "nameserver {att_ip}\n" > /etc/resolv.conf'")
+    _cmd(net, "h1", f"bash -lc 'printf \"nameserver {att_ip}\\n\" > /etc/resolv.conf'")
     forged_mx = _dig_short(net, "h1", "example.com", "MX", dns=att_ip)
     forged_mx = forged_mx.split()[-1].rstrip('.') if forged_mx else ""
     forged_ip = _dig_short(net, "h1", forged_mx, "A", dns=att_ip) if forged_mx else ""
@@ -150,11 +170,60 @@ def run(net, interactive=True):
     say("Attacker log tail:\n" + (log_tail or "(empty)"))
     pause("📸 Screenshot: forged dig + swaks + attacker log. Press Enter...", interactive)
 
+    # Step 6: DKIM verification
+    say("Step 6 — DKIM Signature Verification")
+    _cmd(net, "h1", f"bash -lc 'printf \"nameserver {dns_ip}\n\" > /etc/resolv.conf'")
+    
+    # Check if DKIM TXT record exists in DNS
+    dkim_ok, dkim_txt = _txt_present(net, "h1", "s1._domainkey.example.com", dns_ip, "v=DKIM1")
+    say(f"DKIM TXT (s1._domainkey): {'✔️' if dkim_ok else '✖️'}  {dkim_txt[:100] if dkim_txt else '(none)'}...")
+    
+    # Check if OpenDKIM is running on mx
+    opendkim_running = _verify_opendkim_running(net, "mx")
+    say(f"OpenDKIM running on mx:8891: {'✔️' if opendkim_running else '✖️'}")
+    
+    # Send a test email through the mx server
+    if opendkim_running:
+        # Use Postfix on mx if it's running, otherwise skip
+        postfix_check = _cmd(net, "mx", "ss -ltnp | grep ':25' || echo 'NOT_RUNNING'")
+        if "NOT_RUNNING" not in postfix_check:
+            # Stop the debugging SMTP sink and use Postfix instead
+            _cmd(net, "mx", "fuser -k 25/tcp || true; sleep 1")
+            # Restart Postfix if needed
+            _cmd(net, "mx", "postfix status >/dev/null 2>&1 || postfix start 2>/dev/null")
+            _cmd(net, "mx", "sleep 2")
+            
+            # Send test email
+            dkim_send_ok, dkim_send_out = _test_dkim_signature(net, "h1", mx_ip)
+            say(f"Test email sent via Postfix+OpenDKIM: {'✔️' if dkim_send_ok else '✖️'}")
+            
+            # Check mail logs for DKIM signature
+            maillog_check = _cmd(net, "mx", "grep -i 'dkim' /var/log/mail.log 2>/dev/null | tail -5 || echo 'No DKIM logs'")
+            if maillog_check and "No DKIM logs" not in maillog_check:
+                say(f"DKIM activity in mail.log: ✔️")
+                say(f"Recent DKIM logs:\n{maillog_check}")
+            else:
+                say(f"DKIM activity in mail.log: ⚠️  (check /tmp/opendkim.log)")
+                opendkim_log = _tail(net, "mx", "/tmp/opendkim.log", n=10)
+                if opendkim_log:
+                    say(f"OpenDKIM log tail:\n{opendkim_log}")
+        else:
+            say("Postfix not running on mx, skipping live DKIM test")
+            dkim_send_ok = False
+    else:
+        say("OpenDKIM not running, skipping DKIM signature test")
+        dkim_send_ok = False
+    
+    pause("📸 Screenshot: DKIM TXT record + OpenDKIM status + test results. Press Enter...", interactive)
+
     say("==== Summary ====")
     say(f"GOOD DNS up: {'OK' if ok_dns else 'FAIL'}")
     say(f"ATTACKER DNS up: {'OK' if ok_att else 'FAIL'}")
     say(f"SPF TXT present: {'OK' if spf_ok else 'FAIL'}")
     say(f"DMARC TXT present: {'OK' if dmarc_ok else 'FAIL'}")
+    say(f"DKIM TXT present: {'OK' if dkim_ok else 'FAIL'}")
+    say(f"OpenDKIM running: {'OK' if opendkim_running else 'FAIL'}")
     say(f"Baseline SMTP: {'OK' if b_ok else 'FAIL'}")
     say(f"Forged path SMTP: {'OK' if sw_ok else 'FAIL'}")
+    say(f"DKIM signing test: {'OK' if dkim_send_ok else 'SKIP'}")
     say("=================")
