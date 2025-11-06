@@ -63,7 +63,7 @@ sudo apt-get install -y bind9utils unbound
 
 1. Navigate to the lab directory:
 ```bash
-cd /home/runner/work/Lab4/Lab4
+cd <lab_directory>
 ```
 
 2. Start the Mininet topology:
@@ -336,7 +336,15 @@ h1# dig +short -t TXT _dmarc.example.com @10.0.0.53
 **What it does:** DNSSEC adds cryptographic signatures to DNS records to ensure authenticity and integrity.
 
 **Implementation:**
-For advanced implementation, see `mn_quickcheck_v6_with_dnssec.py` and `mn_quickcheck_v6_dnssec_patch.py`.
+For advanced implementation, the repository includes:
+- `mn_quickcheck_v6_with_dnssec.py` - Complete DNSSEC-enabled runner that signs zones before starting named
+- `mn_quickcheck_v6_dnssec_patch.py` - Helper module providing `enable_dnssec_and_client_validation()` function
+
+These scripts automate:
+1. DNSSEC key generation (KSK and ZSK)
+2. Zone signing with `dnssec-signzone`
+3. Unbound validating resolver configuration on the client
+4. Trust anchor setup with the KSK public key
 
 **Steps to enable:**
 
