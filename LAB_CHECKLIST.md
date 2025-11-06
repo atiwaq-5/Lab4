@@ -1,4 +1,4 @@
-# Lab 4 Checklist - Secure E-Mail and DNS
+# Lab 4 Checklist — Secure E-Mail and DNS
 
 ## Core Requirements
 
