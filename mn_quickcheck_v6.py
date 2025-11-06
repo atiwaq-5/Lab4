@@ -188,6 +188,7 @@ def run(net, interactive=True):
         postfix_check = _cmd(net, "mx", "ss -ltnp | grep ':25' || echo 'NOT_RUNNING'")
         if "NOT_RUNNING" not in postfix_check:
             # Stop the debugging SMTP sink and use Postfix instead
+            # Note: Using fuser -k for test environment; production should use proper service management
             _cmd(net, "mx", "fuser -k 25/tcp || true; sleep 1")
             # Restart Postfix if needed
             _cmd(net, "mx", "postfix status >/dev/null 2>&1 || postfix start 2>/dev/null")

@@ -35,10 +35,19 @@ def setup_opendkim_on_mx(net):
     # Create directory structure
     mx.cmd(f"mkdir -p /etc/opendkim/keys/{domain}")
     
-    # Generate DKIM keys
-    mx.cmd(f"cd /etc/opendkim/keys/{domain} && opendkim-genkey -b 2048 -d {domain} -s {selector}")
-    mx.cmd(f"chown -R opendkim:opendkim /etc/opendkim")
+    # Generate DKIM keys (use absolute path and check result)
+    keygen_result = mx.cmd(f"opendkim-genkey -b 2048 -d {domain} -s {selector} -D /etc/opendkim/keys/{domain} 2>&1")
+    if "error" in keygen_result.lower() or "failed" in keygen_result.lower():
+        print(f"WARNING: DKIM key generation may have failed: {keygen_result[:200]}")
+    
+    # Verify keys exist
+    key_check = mx.cmd(f"test -f /etc/opendkim/keys/{domain}/{selector}.private && echo 'EXISTS' || echo 'MISSING'")
+    if "MISSING" in key_check:
+        print("WARNING: DKIM private key not found after generation")
+    
     mx.cmd(f"chmod 600 /etc/opendkim/keys/{domain}/{selector}.private")
+    # Check if opendkim user exists before changing ownership
+    mx.cmd("id opendkim >/dev/null 2>&1 && chown -R opendkim:opendkim /etc/opendkim || echo 'opendkim user not found'")
     
     # Create OpenDKIM configuration
     opendkim_conf = """# OpenDKIM configuration
@@ -67,12 +76,14 @@ AutoRestart yes
     mx.cmd("cat > /etc/opendkim/TrustedHosts << 'EOFTRUST'\n" + trusted_hosts + "EOFTRUST")
     
     # Fix permissions
-    mx.cmd("chown -R opendkim:opendkim /etc/opendkim")
+    # Check if opendkim user exists before changing ownership
+    mx.cmd("id opendkim >/dev/null 2>&1 && chown -R opendkim:opendkim /etc/opendkim || echo 'opendkim user not found'")
     
     # Start OpenDKIM (graceful shutdown first)
-    mx.cmd("pkill opendkim || true")
+    mx.cmd("pkill opendkim || true")  # SIGTERM
     mx.cmd("sleep 1")
-    mx.cmd("pkill -9 opendkim || true")
+    # Check if still running and use SIGKILL only if necessary
+    mx.cmd("pgrep opendkim >/dev/null && pkill -9 opendkim || true")
     mx.cmd("opendkim -p inet:8891@127.0.0.1 2>/tmp/opendkim.log &")
     mx.cmd("sleep 2")
     
