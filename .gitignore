@@ -30,3 +30,10 @@ artifacts/reports/*
 !artifacts/reports/.gitkeep
 !artifacts/reports/example_comparison_report.txt
 results/
+# DNSSEC generated files (these are created at runtime)
+zones/K*.key
+zones/K*.private
+zones/*.signed
+zones/dsset-*
+zones/*.jbk
+zones/*.jnl
