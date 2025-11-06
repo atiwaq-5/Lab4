@@ -30,6 +30,8 @@ sudo python3 lab4_topo_v6e.py
 source mn_quickcheck_v6.cli      # interactive (prompts for screenshots)
 # or:
 source mn_run_tests4.cli         # non-interactive summary
+# or:
+source tests/dns_spoof_demo.cli  # DNS spoofing attack demonstration
 ```
 
 ### Automated Test Suite (New!)
@@ -186,6 +188,57 @@ These are heavier changes; the current quick‑check keeps them optional so you 
 - The scripts kill any stale `named` on start, but if you manually started one, stop it first.
 - All paths are **relative**; run Mininet from this directory.
 
+## New: DNS Spoofing/Poisoning Demonstration
+
+This lab now includes a complete DNS spoofing attack demonstration with the following components:
+
+### Tools (`tools/`)
+- **`spoof_mx.py`**: Lightweight UDP DNS responder that returns forged MX records
+  - Listens on UDP port 53
+  - Responds to MX queries with attacker's IP address
+  - Configurable domain and IP settings
+
+### Tests (`tests/`)
+- **`dns_spoof_demo.cli`**: Mininet CLI script to run the full attack demonstration
+- **`dns_spoof_demo_helper.py`**: Python helper module implementing the demo logic
+- **`capture_and_compare.sh`**: Evidence capture script using tcpdump
+- **`README.md`**: Detailed documentation for the demonstration
+
+### Running the DNS Spoofing Demo
+
+```bash
+# Start Mininet
+sudo python3 lab4_topo_v6e.py
+
+# In the Mininet CLI, run the demo:
+mininet> source tests/dns_spoof_demo.cli
+```
+
+The demonstration shows:
+1. **Baseline**: Normal DNS resolution with legitimate mail server
+2. **Attack**: DNS spoofing causing email to be delivered to attacker
+3. **Evidence**: Packet captures and logs proving the attack
+4. **Protection**: How DNSSEC would prevent the attack
+
+### Evidence Files Created
+- `/tmp/dns_spoof_attack.pcap` - Full packet capture
+- `/tmp/dns_spoofer.log` - Attacker's DNS spoofer log  
+- `/tmp/att_smtp.log` - Attacker's captured emails
+- `/tmp/mx_smtp.log` - Legitimate mail server log
+
+### Manual Testing with spoof_mx.py
+
+```bash
+# In Mininet, on the attacker host:
+att python3 tools/spoof_mx.py --domain example.com --attacker-ip 10.0.0.66 &
+
+# On the client host:
+h1 dig @10.0.0.66 example.com MX +short
+# Should return: 10 att.example.com.
+#                10.0.0.66
+```
+
+See `tests/README.md` and `tools/README.md` for complete documentation.
 ## Automated Testing and Artifacts
 
 This repository now includes an automated test harness for comparing traffic and logs before and after enabling protections.

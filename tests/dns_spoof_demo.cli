@@ -1,0 +1,1 @@
+py __import__("importlib").import_module("sys").path.insert(0, "/home/runner/work/Lab4/Lab4/tests") or __import__("importlib").import_module("dns_spoof_demo_helper").run_dns_spoof_demo(net, interactive=True)
