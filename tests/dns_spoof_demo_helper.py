@@ -70,12 +70,12 @@ def start_dns_spoofer(net, host, forged_domain='example.com', attacker_ip='10.0.
     script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     spoofer_path = os.path.join(script_dir, 'tools', 'spoof_mx.py')
     
-    # Start the DNS spoofer in background
-    cmd = (f"python3 {spoofer_path} "
-           f"--domain {forged_domain} "
-           f"--attacker-ip {attacker_ip} "
-           f"--attacker-mx {attacker_mx} "
-           f"> {logfile} 2>&1 &")
+    # Start the DNS spoofer in background - escape all parameters
+    cmd = (f"python3 {shlex.quote(spoofer_path)} "
+           f"--domain {shlex.quote(forged_domain)} "
+           f"--attacker-ip {shlex.quote(attacker_ip)} "
+           f"--attacker-mx {shlex.quote(attacker_mx)} "
+           f"> {shlex.quote(logfile)} 2>&1 &")
     
     h.cmd(cmd)
     time.sleep(1)
@@ -106,8 +106,8 @@ def start_tcpdump_capture(net, host, interface='any', output_file='/tmp/dns_spoo
     h.cmd("pkill -9 tcpdump || true")
     time.sleep(0.5)
     
-    # Start tcpdump in background
-    cmd = f"tcpdump -i {interface} -w {output_file} '{filter_expr}' > /tmp/tcpdump.log 2>&1 &"
+    # Start tcpdump in background - escape all parameters
+    cmd = f"tcpdump -i {shlex.quote(interface)} -w {shlex.quote(output_file)} {shlex.quote(filter_expr)} > /tmp/tcpdump.log 2>&1 &"
     h.cmd(cmd)
     time.sleep(1)
     
@@ -168,8 +168,11 @@ def dig_query(net, host, domain, qtype='MX', dns_server=None):
         str: Query result
     """
     h = net.get(host)
-    server_arg = f"@{dns_server}" if dns_server else ""
-    result = h.cmd(f"dig +short -t {qtype} {domain} {server_arg}").strip()
+    # Construct server argument safely
+    server_arg = f"@{shlex.quote(dns_server)}" if dns_server else ""
+    # Escape all parameters
+    cmd = f"dig +short -t {shlex.quote(qtype)} {shlex.quote(domain)} {server_arg}"
+    result = h.cmd(cmd).strip()
     return result
 
 
