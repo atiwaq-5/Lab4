@@ -275,8 +275,6 @@ zone "example.com" IN {
 };
 """
         # Write config file using printf to avoid command injection
-        import shlex
-        conf_content = named_conf.replace("'", "'\\''")  # Escape single quotes
         h.cmd(f"printf '%s' {shlex.quote(named_conf)} > /etc/bind/named.conf")
         h.cmd("named -4 -u bind -g -c /etc/bind/named.conf >/tmp/named.log 2>&1 & sleep 1")
     

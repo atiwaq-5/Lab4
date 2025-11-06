@@ -27,34 +27,59 @@ import sys
 
 
 class DNSQuery:
-    """Simple DNS query parser."""
+    """Simple DNS query parser with bounds checking."""
     
     def __init__(self, data):
         self.data = data
         self.domain = ''
+        self.qtype = 0
+        self.qclass = 0
         
-        # Skip header (12 bytes)
-        pos = 12
-        length = data[pos]
-        
-        # Parse domain name
-        parts = []
-        while length != 0:
-            pos += 1
-            parts.append(data[pos:pos + length].decode('utf-8', errors='ignore'))
-            pos += length
+        try:
+            # Minimum valid DNS query is 12 (header) + 5 (minimal question)
+            if len(data) < 17:
+                return
+            
+            # Skip header (12 bytes)
+            pos = 12
+            if pos >= len(data):
+                return
+                
             length = data[pos]
-        
-        self.domain = '.'.join(parts)
-        pos += 1
-        
-        # Query type and class
-        if pos + 4 <= len(data):
-            self.qtype = struct.unpack('>H', data[pos:pos + 2])[0]
-            self.qclass = struct.unpack('>H', data[pos + 2:pos + 4])[0]
-        else:
-            self.qtype = 0
-            self.qclass = 0
+            
+            # Parse domain name with bounds checking
+            parts = []
+            max_iterations = 255  # Prevent infinite loops
+            iterations = 0
+            
+            while length != 0 and iterations < max_iterations:
+                iterations += 1
+                pos += 1
+                
+                # Check bounds before reading label
+                if pos + length > len(data):
+                    break
+                    
+                parts.append(data[pos:pos + length].decode('utf-8', errors='ignore'))
+                pos += length
+                
+                # Check bounds before reading next length
+                if pos >= len(data):
+                    break
+                    
+                length = data[pos]
+            
+            self.domain = '.'.join(parts)
+            pos += 1
+            
+            # Query type and class
+            if pos + 4 <= len(data):
+                self.qtype = struct.unpack('>H', data[pos:pos + 2])[0]
+                self.qclass = struct.unpack('>H', data[pos + 2:pos + 4])[0]
+                
+        except (IndexError, struct.error):
+            # Malformed packet - use default values
+            pass
 
 
 def build_dns_response(query_data, forged_domain, attacker_ip, attacker_mx_name):
@@ -84,7 +109,16 @@ def build_dns_response(query_data, forged_domain, attacker_ip, attacker_mx_name)
     
     # Echo the question section
     question_start = 12
-    question_end = query_data.find(b'\x00', question_start) + 5  # Find null terminator + qtype + qclass
+    null_pos = query_data.find(b'\x00', question_start)
+    if null_pos == -1:
+        # Malformed query - return minimal response
+        return header
+    question_end = null_pos + 5  # null terminator + qtype (2 bytes) + qclass (2 bytes)
+    
+    # Ensure question_end doesn't exceed data length
+    if question_end > len(query_data):
+        question_end = len(query_data)
+    
     question = query_data[question_start:question_end]
     
     response = header + question

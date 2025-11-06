@@ -22,7 +22,11 @@
 
 set -e
 
+# Sanitize scenario input to prevent path traversal
 SCENARIO="${1:-attack}"
+# Remove any path separators and special characters
+SCENARIO="${SCENARIO//[^a-zA-Z0-9_-]/}"
+
 OUTPUT_DIR="${2:-/tmp/dns_spoof_evidence}"
 CAPTURE_DURATION="${CAPTURE_DURATION:-30}"
 INTERFACE="${INTERFACE:-any}"
