@@ -120,10 +120,8 @@ def start_bind_on_host(h, zone_path, zone_name):
     )
     conf_path = os.path.join(tmpdir, 'named.conf')
     
-    # Write config using single-line printf to avoid heredoc issues
-    escaped_conf = repr(named_conf)[1:-1]  # Remove outer quotes
-    write_cmd = f'bash -lc "printf \'%s\' {repr(named_conf)} > {conf_path}"'
-    h.cmd(write_cmd)
+    # Write config using cat with heredoc marker (more reliable than printf for multi-line)
+    h.cmd(f'cat > {conf_path} << \'NAMEDCONF\'\n{named_conf}\nNAMEDCONF\n')
     
     # Kill any existing named process
     h.cmd('pkill named || true')
@@ -154,10 +152,9 @@ def start_unbound_on_host(h, config_content, logfile="/tmp/unbound.log"):
     """
     conf_path = '/etc/unbound/unbound.conf.d/example_lab.conf'
     
-    # Create directory and write config
+    # Create directory and write config using cat heredoc
     h.cmd('mkdir -p /etc/unbound/unbound.conf.d || true')
-    write_cmd = f'bash -lc "printf \'%s\' {repr(config_content)} > {conf_path}"'
-    h.cmd(write_cmd)
+    h.cmd(f'cat > {conf_path} << \'UNBOUNDCONF\'\n{config_content}\nUNBOUNDCONF\n')
     
     # Check if unbound binary exists
     unbound_check = h.cmd('which unbound 2>/dev/null || which unbound-daemon 2>/dev/null || echo "missing"').strip()
@@ -284,9 +281,9 @@ def main():
     good_text = open(src_good).read()
     att_text = open(src_att).read()
     
-    # Use printf for single-line writes
-    dns.cmd(f'bash -lc "printf \'%s\' {repr(good_text)} > /root/zones/db.example.com.good"')
-    att.cmd(f'bash -lc "printf \'%s\' {repr(att_text)} > /root/zones/db.example.com.att"')
+    # Use cat with heredoc for reliable multi-line writes
+    dns.cmd(f'cat > /root/zones/db.example.com.good << \'ZONEGOOD\'\n{good_text}\nZONEGOOD\n')
+    att.cmd(f'cat > /root/zones/db.example.com.att << \'ZONEATT\'\n{att_text}\nZONEATT\n')
     
     # Verify files were written
     dns_check = dns.cmd('test -f /root/zones/db.example.com.good && echo "ok" || echo "fail"').strip()

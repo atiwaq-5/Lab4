@@ -133,13 +133,9 @@ stub-zone:
     stub-addr: {net.get(dns_host).IP()} 53
 """.format(zone_name=zone_name, ksk_b64=ksk_b64, **locals())
 
-    # Write Unbound conf file using printf (single-line friendly)
+    # Write Unbound conf file using cat heredoc
     unbound_conf_path = '/etc/unbound/unbound.conf.d/example_lab.conf'
-    write_cmd = 'bash -lc "mkdir -p $(dirname %s) && printf \'%%s\' %s > %s"' % (
-        shlex.quote(unbound_conf_path), 
-        shlex.quote(repr(unbound_conf)),
-        shlex.quote(unbound_conf_path)
-    )
+    write_cmd = f'bash -lc "mkdir -p $(dirname {shlex.quote(unbound_conf_path)}) && cat > {shlex.quote(unbound_conf_path)} << \'UNBOUNDEOF\'\n{unbound_conf}\nUNBOUNDEOF\n"'
     _run(h1, write_cmd)
 
     # 7) Start/Restart unbound on h1
