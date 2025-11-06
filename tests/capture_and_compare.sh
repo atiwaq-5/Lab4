@@ -24,8 +24,18 @@ set -e
 
 # Sanitize scenario input to prevent path traversal
 SCENARIO="${1:-attack}"
-# Remove any path separators and special characters
-SCENARIO="${SCENARIO//[^a-zA-Z0-9_-]/}"
+# Only allow alphanumeric and underscore (no hyphens for extra safety)
+SCENARIO="${SCENARIO//[^a-zA-Z0-9_]/}"
+
+# Validate against whitelist of known scenarios
+case "$SCENARIO" in
+    baseline|attack|dnssec)
+        # Valid scenario
+        ;;
+    *)
+        SCENARIO="attack"  # Default to safe value
+        ;;
+esac
 
 OUTPUT_DIR="${2:-/tmp/dns_spoof_evidence}"
 CAPTURE_DURATION="${CAPTURE_DURATION:-30}"

@@ -60,7 +60,8 @@ class DNSQuery:
                 if pos + length > len(data):
                     break
                     
-                parts.append(data[pos:pos + length].decode('utf-8', errors='ignore'))
+                # Use 'replace' to mark invalid characters instead of ignoring them
+                parts.append(data[pos:pos + length].decode('utf-8', errors='replace'))
                 pos += length
                 
                 # Check bounds before reading next length

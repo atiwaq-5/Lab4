@@ -139,15 +139,16 @@ def start_smtp_sink(net, host, ip='0.0.0.0', port=25, logfile='/tmp/smtp_sink.lo
     """
     h = net.get(host)
     
-    # Kill any existing SMTP servers
+    # Kill any existing SMTP servers (port is integer, safe to use directly)
     h.cmd(f"fuser -k {port}/tcp || true")
     time.sleep(0.5)
     
-    # Start SMTP debugging server
-    h.cmd(f"python3 -u -m smtpd -n -c DebuggingServer {ip}:{port} > {logfile} 2>&1 &")
+    # Start SMTP debugging server - escape all parameters
+    cmd = f"python3 -u -m smtpd -n -c DebuggingServer {shlex.quote(f'{ip}:{port}')} > {shlex.quote(logfile)} 2>&1 &"
+    h.cmd(cmd)
     time.sleep(1)
     
-    # Check if listening
+    # Check if listening (port is integer, safe)
     check = h.cmd(f"ss -ltnp | grep ':{port} ' || true")
     return bool(check.strip())
 
@@ -190,8 +191,11 @@ def send_test_email(net, host, to_addr, from_addr, server, subject='Test', body=
     """
     h = net.get(host)
     
-    cmd = (f"swaks --to {to_addr} --from {from_addr} --server {server} "
-           f"--header 'Subject: {subject}' --body '{body}' 2>&1")
+    # Properly escape all parameters to prevent command injection
+    cmd = (f"swaks --to {shlex.quote(to_addr)} --from {shlex.quote(from_addr)} "
+           f"--server {shlex.quote(server)} "
+           f"--header {shlex.quote(f'Subject: {subject}')} "
+           f"--body {shlex.quote(body)} 2>&1")
     
     output = h.cmd(cmd)
     success = (" 250 OK" in output) or (" 250 2.0.0" in output) or (" 250 2.1.5" in output)
