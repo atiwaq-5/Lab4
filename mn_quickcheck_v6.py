@@ -141,7 +141,7 @@ def run(net, interactive=True):
 
     # Step 4: Good DNS path (+ SPF/DMARC TXT checks)
     say("Step 4 — Resolve via GOOD DNS and test baseline SMTP to REAL MX (10.0.0.25)")
-    _cmd(net, "h1", f"bash -lc 'printf "nameserver {dns_ip}\n" > /etc/resolv.conf'")
+    _cmd(net, "h1", f"bash -lc 'printf \"nameserver {dns_ip}\\n\" > /etc/resolv.conf'")
     mx_ans = _dig_short(net, "h1", "example.com", "MX", dns=dns_ip)
     a_ans  = _dig_short(net, "h1", "mail.example.com", "A",  dns=dns_ip)
     spf_ok, spf_txt = _txt_present(net, "h1", "example.com", dns_ip, "v=spf1")
@@ -156,7 +156,7 @@ def run(net, interactive=True):
 
     # Step 5: Forged path
     say("Step 5 — Switch to attacker DNS, resolve forged MX, and send mail to attacker")
-    _cmd(net, "h1", f"bash -lc 'printf "nameserver {att_ip}\n" > /etc/resolv.conf'")
+    _cmd(net, "h1", f"bash -lc 'printf \"nameserver {att_ip}\\n\" > /etc/resolv.conf'")
     forged_mx = _dig_short(net, "h1", "example.com", "MX", dns=att_ip)
     forged_mx = forged_mx.split()[-1].rstrip('.') if forged_mx else ""
     forged_ip = _dig_short(net, "h1", forged_mx, "A", dns=att_ip) if forged_mx else ""
