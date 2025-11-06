@@ -49,14 +49,52 @@ source mn_run_tests4.cli         # non-interactive summary
 
 ## Zone records
 
-`zones/db.example.com.good` includes **SPF** and **DMARC**:
+The repository includes three zone files:
+- `zones/db.example.com` - Primary zone file with explicit SPF and DMARC records
+- `zones/db.example.com.good` - Alternative good zone (legacy)
+- `zones/db.example.com.att` - Attacker zone for forged MX demonstration
+
+The primary zone `zones/db.example.com` includes **SPF** and **DMARC**:
 
 ```zone
-@       IN TXT   "v=spf1 a mx -all"
-_dmarc  IN TXT   "v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@example.com"
+@       IN TXT   "v=spf1 ip4:10.0.0.25/32 -all"
+_dmarc  IN TXT   "v=DMARC1; p=quarantine; rua=mailto:postmaster@example.com; ruf=mailto:postmaster@example.com; pct=100"
 ```
 
+**Key features:**
+- **SPF**: Explicitly authorizes only the MX IP (10.0.0.25/32) with hard fail (-all) for all others
+- **DMARC**: Enforces quarantine policy on authentication failures, with both aggregate (rua) and forensic (ruf) reporting
+
 The attacker zone intentionally points MX to `att.example.com` on `10.0.0.66`.
+
+## Automated SPF/DMARC Tests
+
+The `tests/` directory contains automated validation scripts:
+
+### Running the tests
+
+After starting the Mininet topology and DNS servers:
+
+```bash
+# From Mininet CLI, set up DNS on the good server first
+dns pkill -9 named || true
+dns mkdir -p /var/cache/bind/zones
+dns cp zones/db.example.com /var/cache/bind/zones/db.example.com
+dns named -4 -u bind -g -c /etc/bind/named.conf &
+
+# Run the automated SPF/DMARC tests from h1
+h1 bash tests/test_spf_dmarc.sh
+```
+
+### What the tests validate
+
+1. **SPF Record Presence**: Confirms SPF TXT record exists and authorizes MX IP
+2. **DMARC Record Presence**: Verifies DMARC policy is set to quarantine/reject
+3. **Unauthorized Sender Detection**: Simulates attacker from 10.0.0.66 and validates SPF would fail
+4. **DMARC Policy Application**: Confirms enforcement policy is properly configured
+5. **MX Record Validation**: Ensures MX points to the authorized mail server
+
+See `tests/README.md` for detailed documentation on the test suite.
 
 ## Notes on the full assignment (DNSSEC/DKIM)
 
