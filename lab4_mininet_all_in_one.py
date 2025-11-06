@@ -122,7 +122,8 @@ def start_bind_on_host(h, zone_path, zone_name):
     
     # Write config using single-line printf to avoid heredoc issues
     escaped_conf = repr(named_conf)[1:-1]  # Remove outer quotes
-    h.cmd(f'bash -lc "printf %s {escaped_conf!r} > {conf_path}"')
+    write_cmd = f'bash -lc "printf \'%s\' {repr(named_conf)} > {conf_path}"'
+    h.cmd(write_cmd)
     
     # Kill any existing named process
     h.cmd('pkill named || true')
@@ -155,8 +156,8 @@ def start_unbound_on_host(h, config_content, logfile="/tmp/unbound.log"):
     
     # Create directory and write config
     h.cmd('mkdir -p /etc/unbound/unbound.conf.d || true')
-    escaped_conf = repr(config_content)[1:-1]
-    h.cmd(f'bash -lc "printf %s {escaped_conf!r} > {conf_path}"')
+    write_cmd = f'bash -lc "printf \'%s\' {repr(config_content)} > {conf_path}"'
+    h.cmd(write_cmd)
     
     # Check if unbound binary exists
     unbound_check = h.cmd('which unbound 2>/dev/null || which unbound-daemon 2>/dev/null || echo "missing"').strip()
@@ -284,8 +285,8 @@ def main():
     att_text = open(src_att).read()
     
     # Use printf for single-line writes
-    dns.cmd('bash -lc "printf %%s %s > /root/zones/db.example.com.good"' % repr(good_text)[1:-1])
-    att.cmd('bash -lc "printf %%s %s > /root/zones/db.example.com.att"' % repr(att_text)[1:-1])
+    dns.cmd(f'bash -lc "printf \'%s\' {repr(good_text)} > /root/zones/db.example.com.good"')
+    att.cmd(f'bash -lc "printf \'%s\' {repr(att_text)} > /root/zones/db.example.com.att"')
     
     # Verify files were written
     dns_check = dns.cmd('test -f /root/zones/db.example.com.good && echo "ok" || echo "fail"').strip()

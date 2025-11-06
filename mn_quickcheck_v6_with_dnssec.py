@@ -105,7 +105,8 @@ def start_bind_on_host(h, zone_path, zone_name):
     )
     conf_path = os.path.join(tmpdir, 'named.conf')
     # single-line write
-    h.cmd('bash -lc "printf %s %s > %s"' % ("%s", repr(named_conf)[1:-1], conf_path))
+    write_cmd = f'bash -lc "printf \'%s\' {repr(named_conf)} > {conf_path}"'
+    h.cmd(write_cmd)
     
     # Check if zone file exists before starting
     zone_check = h.cmd(f'test -f {zone_path} && echo "exists" || echo "missing"').strip()
@@ -190,8 +191,8 @@ def main():
     att.cmd('mkdir -p /root/zones || true')
     good_text = open(src_good).read()
     att_text  = open(src_att).read()
-    dns.cmd('bash -lc "printf %s %s > /root/zones/db.example.com.good"' % ("%s", repr(good_text)[1:-1]))
-    att.cmd('bash -lc "printf %s %s > /root/zones/db.example.com.att"'  % ("%s", repr(att_text)[1:-1]))
+    dns.cmd(f'bash -lc "printf \'%s\' {repr(good_text)} > /root/zones/db.example.com.good"')
+    att.cmd(f'bash -lc "printf \'%s\' {repr(att_text)} > /root/zones/db.example.com.att"')
 
     # Verify files were written
     dns_check = dns.cmd('test -f /root/zones/db.example.com.good && echo "ok" || echo "fail"').strip()

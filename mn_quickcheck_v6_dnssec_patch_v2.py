@@ -135,11 +135,9 @@ stub-zone:
 
     # Write Unbound conf file using printf (single-line friendly)
     unbound_conf_path = '/etc/unbound/unbound.conf.d/example_lab.conf'
-    # Escape the config for printf %s
-    escaped_conf = repr(unbound_conf)[1:-1]  # Remove outer quotes from repr
-    write_cmd = 'bash -lc "mkdir -p $(dirname %s) && printf %%s %s > %s"' % (
+    write_cmd = 'bash -lc "mkdir -p $(dirname %s) && printf \'%%s\' %s > %s"' % (
         shlex.quote(unbound_conf_path), 
-        shlex.quote(escaped_conf),
+        shlex.quote(repr(unbound_conf)),
         shlex.quote(unbound_conf_path)
     )
     _run(h1, write_cmd)
