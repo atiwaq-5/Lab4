@@ -91,7 +91,15 @@ def test_mx_precheck_logic():
     # Test successful case
     print("\n  Scenario 1: Valid MX and A records")
     mx_ans = mock_dig("example.com", "MX")
-    mx_host = mx_ans.split()[-1].rstrip('.') if mx_ans else ""
+    
+    # Improved parsing logic (matches mn_quickcheck_v6.py)
+    mx_host = ""
+    if mx_ans:
+        first_line = mx_ans.strip().split('\n')[0]
+        tokens = first_line.split()
+        if len(tokens) >= 2:
+            mx_host = tokens[1].rstrip('.')
+    
     a_ans = mock_dig(mx_host, "A") if mx_host else ""
     mx_a_ok = bool(a_ans.strip())
     
@@ -110,7 +118,12 @@ def test_mx_precheck_logic():
     # Test error case: No MX record
     print("\n  Scenario 2: Missing MX record")
     mx_ans = ""
-    mx_host = mx_ans.split()[-1].rstrip('.') if mx_ans else ""
+    mx_host = ""
+    if mx_ans:
+        first_line = mx_ans.strip().split('\n')[0]
+        tokens = first_line.split()
+        if len(tokens) >= 2:
+            mx_host = tokens[1].rstrip('.')
     
     if not mx_host:
         print("  ✔️ PASS: Correctly detected missing MX record")
@@ -122,7 +135,13 @@ def test_mx_precheck_logic():
     # Test error case: MX exists but no A record
     print("\n  Scenario 3: MX record but missing A record")
     mx_ans = "10 nonexistent.example.com."
-    mx_host = mx_ans.split()[-1].rstrip('.') if mx_ans else ""
+    mx_host = ""
+    if mx_ans:
+        first_line = mx_ans.strip().split('\n')[0]
+        tokens = first_line.split()
+        if len(tokens) >= 2:
+            mx_host = tokens[1].rstrip('.')
+    
     a_ans = mock_dig(mx_host, "A") if mx_host else ""
     mx_a_ok = bool(a_ans.strip())
     
@@ -133,8 +152,25 @@ def test_mx_precheck_logic():
         print("  ✖️ FAIL: Failed to detect missing A record")
         scenario3_ok = False
     
+    # Test edge case: Multiple MX records (should take first)
+    print("\n  Scenario 4: Multiple MX records")
+    mx_ans = "10 mx.example.com.\n20 mx2.example.com."
+    mx_host = ""
+    if mx_ans:
+        first_line = mx_ans.strip().split('\n')[0]
+        tokens = first_line.split()
+        if len(tokens) >= 2:
+            mx_host = tokens[1].rstrip('.')
+    
+    if mx_host == "mx.example.com":
+        print("  ✔️ PASS: Correctly extracted first MX record")
+        scenario4_ok = True
+    else:
+        print(f"  ✖️ FAIL: Expected 'mx.example.com' but got '{mx_host}'")
+        scenario4_ok = False
+    
     print()
-    return scenario1_ok and scenario2_ok and scenario3_ok
+    return scenario1_ok and scenario2_ok and scenario3_ok and scenario4_ok
 
 
 def main():

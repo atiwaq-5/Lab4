@@ -125,7 +125,14 @@ def run(net, interactive=True):
     mx_ans = _dig_short(net, "h1", "example.com", "MX", dns=dns_ip)
     
     # Pre-check: Extract MX hostname and verify its A record
-    mx_host = mx_ans.split()[-1].rstrip('.') if mx_ans else ""
+    # MX format is "priority hostname", take first result and extract hostname
+    mx_host = ""
+    if mx_ans:
+        first_line = mx_ans.strip().split('\n')[0]
+        tokens = first_line.split()
+        if len(tokens) >= 2:
+            mx_host = tokens[1].rstrip('.')
+    
     if not mx_host:
         say(f"⚠️  WARNING: MX lookup failed - no MX record returned for example.com")
         a_ans = ""
