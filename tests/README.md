@@ -16,6 +16,7 @@ The test suite provides a reproducible, automated way to:
 
 - **`run_all_tests.sh`** - Main test orchestrator that executes the complete test cycle
 - **`collect_logs.sh`** - Utility script for collecting logs, pcaps, and test outputs
+- **`verify_environment.sh`** - Environment verification script to check dependencies
 - **`README.md`** - This file
 
 ## Prerequisites
@@ -26,6 +27,17 @@ Ensure the following packages are installed on your Mininet VM:
 sudo apt-get update
 sudo apt-get install -y bind9 dnsutils swaks python3 tcpdump
 ```
+
+### Verify Environment
+
+Before running tests, verify your environment has all required dependencies:
+
+```bash
+cd /path/to/Lab4
+./tests/verify_environment.sh
+```
+
+This will check for all required tools and Python modules.
 
 ## Usage
 
