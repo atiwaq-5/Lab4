@@ -21,6 +21,15 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# Test artifacts (keep directory structure)
+artifacts/logs/*
+artifacts/pcap/*
+artifacts/reports/*
+!artifacts/logs/.gitkeep
+!artifacts/pcap/.gitkeep
+!artifacts/reports/.gitkeep
+!artifacts/reports/example_comparison_report.txt
+results/
 # DNSSEC generated files (these are created at runtime)
 zones/K*.key
 zones/K*.private
