@@ -71,10 +71,8 @@ def run_swaks_test(h, server, from_addr, to_addr, output_file, subject="Test"):
 
 def start_pcap(h, interface, output_file, port=None):
     """Start tcpdump on host"""
-    if port:
-        cmd = f"tcpdump -i {interface} port {port} -w {output_file} 2>/dev/null &"
-    else:
-        cmd = f"tcpdump -i {interface} -w {output_file} 2>/dev/null &"
+    port_filter = f" port {port}" if port else ""
+    cmd = f"tcpdump -i {interface}{port_filter} -w {output_file} 2>/dev/null &"
     h.cmd(cmd)
     time.sleep(0.5)
     print(f"  ✓ Started tcpdump on {h.name}:{interface} -> {output_file}")
@@ -457,13 +455,18 @@ for dir in logs pcap reports; do
     fi
 done
 
-# Copy artifacts safely, checking for files first
-if [ -n "$(find "$RESULTS_DIR/baseline/logs" -maxdepth 1 -type f 2>/dev/null)" ]; then
-    cp "$RESULTS_DIR"/baseline/logs/* "$PROJECT_DIR/artifacts/logs/" 2>/dev/null || true
-fi
-if [ -n "$(find "$RESULTS_DIR/baseline/pcap" -maxdepth 1 -type f 2>/dev/null)" ]; then
-    cp "$RESULTS_DIR"/baseline/pcap/* "$PROJECT_DIR/artifacts/pcap/" 2>/dev/null || true
-fi
+# Helper function to safely copy directory contents
+safe_copy_dir() {
+    local src_dir="$1"
+    local dest_dir="$2"
+    if [ -n "$(find "$src_dir" -maxdepth 1 -type f 2>/dev/null)" ]; then
+        cp "$src_dir"/* "$dest_dir/" 2>/dev/null || true
+    fi
+}
+
+# Copy artifacts safely
+safe_copy_dir "$RESULTS_DIR/baseline/logs" "$PROJECT_DIR/artifacts/logs"
+safe_copy_dir "$RESULTS_DIR/baseline/pcap" "$PROJECT_DIR/artifacts/pcap"
 if [ -f "$RESULTS_DIR/comparison_report.txt" ]; then
     cp "$RESULTS_DIR/comparison_report.txt" "$PROJECT_DIR/artifacts/reports/" 2>/dev/null || true
 fi

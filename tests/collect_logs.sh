@@ -73,6 +73,13 @@ for swaks_out in /tmp/swaks_*.txt; do
     fi
 done
 
+# Helper function to list files or show message
+list_files_or_message() {
+    local pattern="$1"
+    local message="$2"
+    ls -lh "$pattern" 2>/dev/null || echo "  $message"
+}
+
 # Create a summary file
 SUMMARY_FILE="$OUTPUT_DIR/$PHASE/collection_summary.txt"
 cat > "$SUMMARY_FILE" <<EOF
@@ -81,19 +88,19 @@ Timestamp: $(date)
 ======================================
 
 DNS Logs:
-$(ls -lh "$OUTPUT_DIR/$PHASE/logs/"named*.log 2>/dev/null || echo "  No DNS logs found")
+$(list_files_or_message "$OUTPUT_DIR/$PHASE/logs/named*.log" "No DNS logs found")
 
 SMTP Logs:
-$(ls -lh "$OUTPUT_DIR/$PHASE/logs/"*smtp*.log 2>/dev/null || echo "  No SMTP logs found")
+$(list_files_or_message "$OUTPUT_DIR/$PHASE/logs/*smtp*.log" "No SMTP logs found")
 
 PCAP Files:
-$(ls -lh "$OUTPUT_DIR/$PHASE/pcap/"*.pcap 2>/dev/null || echo "  No pcap files found")
+$(list_files_or_message "$OUTPUT_DIR/$PHASE/pcap/*.pcap" "No pcap files found")
 
 Dig Outputs:
-$(ls -lh "$OUTPUT_DIR/$PHASE/dig_outputs/"*.txt 2>/dev/null || echo "  No dig outputs found")
+$(list_files_or_message "$OUTPUT_DIR/$PHASE/dig_outputs/*.txt" "No dig outputs found")
 
 Swaks Outputs:
-$(ls -lh "$OUTPUT_DIR/$PHASE/swaks_outputs/"*.txt 2>/dev/null || echo "  No swaks outputs found")
+$(list_files_or_message "$OUTPUT_DIR/$PHASE/swaks_outputs/*.txt" "No swaks outputs found")
 EOF
 
 echo "✓ Summary saved to: $SUMMARY_FILE"
